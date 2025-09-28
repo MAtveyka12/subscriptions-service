@@ -143,7 +143,7 @@ curl -X GET "http://localhost:8080/subscriptions/cost?start_date=2025-07&end_dat
 
 1. **Клонируйте репозиторий:**
 ```bash
-git clone <repository-url>
+git clone git@github.com:MAtveyka12/subscriptions-service.git
 cd subscription-service
 ```
 
