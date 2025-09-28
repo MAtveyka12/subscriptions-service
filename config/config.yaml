@@ -1,0 +1,13 @@
+env: dev
+
+service:
+  host: subscription
+  port: 8080
+
+database:
+  host: postgresql
+  port: 5432
+  name: "subscription"
+  sslmode: "disable"
+  max_open_connections: 10
+  max_idle_connections: 2

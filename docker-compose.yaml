@@ -1,0 +1,83 @@
+version: '3.8'
+
+services:
+  postgresql:
+    image: postgres:latest
+    container_name: postgresql
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: subscription
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - subscription_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  subscription:
+    platform: linux/amd64
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: subscription
+    restart: unless-stopped
+    environment:
+      - DB_URL=postgres://${DB_USER}:${DB_PASSWORD}@postgresql:5432/subscription?sslmode=disable
+    depends_on:
+      postgresql:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./config/config.yaml:/app/config/config.yaml
+      - ./.env:/app/.env
+    networks:
+      - subscription_network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
+
+  liquibase-migrations:
+     container_name: migrations
+     image: liquibase/liquibase:4.29
+     depends_on:
+       postgresql:
+         condition: service_healthy
+     command:
+       - --searchPath=/changesets
+       - --changelog-file=master.xml
+       - --driver=org.postgresql.Driver
+       - --url=jdbc:postgresql://postgresql:5432/subscription
+       - --username=${DB_USER}
+       - --password=${DB_PASSWORD}
+       - update
+     volumes:
+       - ./migrations:/changesets
+     networks:
+       - subscription_network
+
+networks:
+  subscription_network:
+    driver: bridge
+
+volumes:
+  postgres_data:
